@@ -46,6 +46,8 @@ def fetch(url):
         # print("=== HTML SNAPSHOT ===")
         # print(html[:1500])  # inspect what you're actually getting
 
+# ----------------------------------------------------------------------------------
+
 def get_designers(designer_index_url):
     html = fetch(designer_index_url)
     soup = BeautifulSoup(html, "html.parser")
@@ -66,16 +68,90 @@ def get_designers(designer_index_url):
         designers[name] = url
 
     return designers
+
+# ----------------------------------------------------------------------------------
+
+def compute_score(rating, votes):
+    if rating is None or votes is None:
+        return None
+    return rating * math.log1p(votes)
+
+# ----------------------------------------------------------------------------------
     
-    #def get_perfumes(designer_name, designer_url):
+def get_perfumes(designer_url, designer_name):
+    html = fetch(designer_url)
+    soup = BeautifulSoup(html, "html.parser")
 
-url = "https://www.fragrantica.com/designers/"
+    elements = soup.select("a.prefumeHbox")
+    
+    perfumes = []
 
-designers = get_designers(url)
+    for element in elements:
+        name_tag = element.select_one('h3.tw-perfume-title')
+        year_tag = element.select_one('span.tw-year-badge')
+        gender_tag = element.select_one("span.text-pink-700, span.text-teal-700, span.text-blue-700")
+        designer_tag = element.select_one('p.tw-perfume-designer')
 
-print(len(designers))
-print(list(designers.items())[:10])
+        perfumes.append({
+            'designer': designer_name,
+            'perfume_name': name_tag.get_text(strip=True) if name_tag else None,
+            'year': year_tag.get_text(strip=True) if year_tag else None,
+            'gender': gender_tag.get_text(strip=True) if gender_tag else None,
+            'url': urljoin(BASE, element.get("href"))
+        })
+    
+    return perfumes
 
+# ----------------------------------------------------------------------------------
+
+def get_fragrance_details(perfume_url):
+    html = fetch(perfume_url)
+    soup = BeautifulSoup(html, "html.parser")
+
+    perfume_details = []
+
+     # -------------------------
+    # 1. ACCORDS
+    # -------------------------
+    main_accords = [
+    s.get_text(strip=True)
+    for s in soup.select("span.truncate")
+    if s.get_text(strip=True) != "Search perfumes, articles, designers..."]
+
+     # -------------------------
+    # 2. NOTES
+    # -------------------------
+    notes = {
+        "top_notes": [],
+        "middle_notes": [],
+        "base_notes": []
+    }
+
+    elements = soup.select("div.pyramid-level-container")
+
+    notes["top_notes"] = [
+        n.get_text(strip=True)
+        for n in elements[0].select("span.pyramid-note-label")
+    ]
+
+    notes["middle_notes"] = [
+        n.get_text(strip=True)
+        for n in elements[1].select("span.pyramid-note-label")
+    ]
+
+    notes["base_notes"] = [
+        n.get_text(strip=True)
+        for n in elements[2].select("span.pyramid-note-label")
+    ]
+
+    perfume_details.append({
+        'main_accords' : main_accords,
+        'notes': notes
+    })
+    return perfume_details
+
+details = get_fragrance_details('https://www.fragrantica.com/perfume/d-Annam/Da-Lat-89237.html')
+print(details)
 
 
 
